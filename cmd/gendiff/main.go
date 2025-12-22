@@ -13,8 +13,18 @@ func main() {
 	cmd := &cli.Command{
 		Name:  "gendiff",
 		Usage: "Compares two configuration files and shows a difference.",
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:    "format",
+				Aliases: []string{"f"},
+				Usage:   `output format (default: "stylish")`,
+			},
+		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			fmt.Println("start")
+			if cmd.Bool("format") {
+				fmt.Println("test format")
+			}
+			fmt.Println("test start")
 			return nil
 		},
 	}

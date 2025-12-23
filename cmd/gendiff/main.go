@@ -69,8 +69,14 @@ func main() {
 			path1 := cmd.Args().Get(0)
 			path2 := cmd.Args().Get(1)
 
-			data1, _ := parsers.Parser(path1)
-			data2, _ := parsers.Parser(path2)
+			data1, err1 := parsers.Parser(path1)
+			if err1 != nil {
+				log.Fatal(err1)
+			}
+			data2, err2 := parsers.Parser(path2)
+			if err2 != nil {
+				log.Fatal(err2)
+			}
 			diff := gendiff(data1, data2)
 			result := formatters.Stylish(diff)
 			fmt.Println(result)

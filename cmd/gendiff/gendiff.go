@@ -16,23 +16,30 @@ func Gendiff(data1, data2 map[string]any) map[string]string {
 	diff := make(map[string]string)
 	data1Keys := slices.Sorted(maps.Keys(data1))
 	data2Keys := slices.Sorted(maps.Keys(data2))
-	for key, value := range data1 {
-		row1 := fmt.Sprintf("%s: %v", key, value)
-		row2 := fmt.Sprintf("%s: %v", key, data2[key])
-		if slices.Contains(data2Keys, key) && data2[key] == value {
+	allKeys := append(data1Keys, data2Keys...)
+	uniqueKeys := slices.Compact(allKeys)
+	slices.Sort(uniqueKeys)
+
+	for _, key := range uniqueKeys {
+		val1, ok1 := data1[key]
+		val2, ok2 := data2[key]
+		row1 := fmt.Sprintf("%s: %v", key, val1)
+		row2 := fmt.Sprintf("%s: %v", key, val2)
+
+		switch {
+		case ok1 && ok2 && val1 == val2:
+			// Значения совпадают
 			diff[row1] = equal
-		} else if slices.Contains(data2Keys, key) && data2[key] != value {
+		case ok1 && ok2 && val1 != val2:
+			// Значения отличаются
 			diff[row1] = rowOfData1
 			diff[row2] = rowOfData2
-		} else {
-			row := fmt.Sprintf("%s: %v", key, value)
-			diff[row] = rowOfData1
-		}
-	}
-	for key := range data2 {
-		if !slices.Contains(data1Keys, key) {
-			row := fmt.Sprintf("%s: %v", key, data2[key])
-			diff[row] = rowOfData2
+		case ok1 && !ok2:
+			// ключ есть только в data1
+			diff[row1] = rowOfData1
+		case !ok1 && ok2:
+			// ключ есть только в data2
+			diff[row2] = rowOfData2
 		}
 	}
 	return diff

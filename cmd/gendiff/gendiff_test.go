@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestGendiff_Scenarios(t *testing.T) {
+func TestPlainGendiff(t *testing.T) {
 	tests := []struct {
 		name     string
 		data1    map[string]any

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestFileReader_Success(t *testing.T) {
+func TestFileReaderSuccess(t *testing.T) {
 	data, err := fileReader("../testdata/fixtures/file1.json")
 	if err != nil {
 		t.Fatal(err)
@@ -16,14 +16,14 @@ func TestFileReader_Success(t *testing.T) {
 	}
 }
 
-func TestFileReader_Error(t *testing.T) {
+func TestFileReaderError(t *testing.T) {
 	_, err := fileReader("../testdata/fixtures/nonexistentfile.json")
 	if err == nil {
 		t.Fatal("expected error for nonexistent file")
 	}
 }
 
-func TestJsonParser_Valid(t *testing.T) {
+func TestJsonParserValid(t *testing.T) {
 	jsonData := []byte(`{"key": "value"}`)
 	result, err := jsonParser(jsonData)
 	if err != nil {
@@ -34,7 +34,7 @@ func TestJsonParser_Valid(t *testing.T) {
 	}
 }
 
-func TestJsonParser_Invalid(t *testing.T) {
+func TestJsonParserInvalid(t *testing.T) {
 	jsonData := []byte(`{key: value}`)
 	_, err := jsonParser(jsonData)
 	if err == nil {
@@ -42,7 +42,7 @@ func TestJsonParser_Invalid(t *testing.T) {
 	}
 }
 
-func TestParser_JSONFile(t *testing.T) {
+func TestParserJSONFile(t *testing.T) {
 	result, err := Parser("../testdata/fixtures/file1.json")
 	if err != nil {
 		t.Fatal(err)

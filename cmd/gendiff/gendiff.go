@@ -17,12 +17,11 @@ func Gendiff(data1, data2 map[string]any) map[string]string {
 	data1Keys := slices.Sorted(maps.Keys(data1))
 	data2Keys := slices.Sorted(maps.Keys(data2))
 	for key, value := range data1 {
+		row1 := fmt.Sprintf("%s: %v", key, value)
+		row2 := fmt.Sprintf("%s: %v", key, data2[key])
 		if slices.Contains(data2Keys, key) && data2[key] == value {
-			row := fmt.Sprintf("%s: %v", key, value)
-			diff[row] = equal
+			diff[row1] = equal
 		} else if slices.Contains(data2Keys, key) && data2[key] != value {
-			row1 := fmt.Sprintf("%s: %v", key, value)
-			row2 := fmt.Sprintf("%s: %v", key, data2[key])
 			diff[row1] = rowOfData1
 			diff[row2] = rowOfData2
 		} else {

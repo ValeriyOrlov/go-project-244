@@ -8,4 +8,6 @@ clean:
 	rm -rf bin/
 run:
 	go run cmd/gendiff/main.go
+lint:
+	golangci-lint run ./...
 

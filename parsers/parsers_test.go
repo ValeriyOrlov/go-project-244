@@ -53,3 +53,34 @@ func TestParserJSONFile(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestParserYmlFile(t *testing.T) {
+	result, err := Parser("../testdata/fixtures/file1.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotKeys := slices.Sorted(maps.Keys(result))
+	wantKeys := []string{"follow", "host", "proxy", "timeout"}
+	if !slices.Equal(gotKeys, wantKeys) {
+		t.Fatal(err)
+	}
+}
+
+func TestYmlParserValid(t *testing.T) {
+	ymlData := []byte(`key: value`)
+	result, err := ymlParser(ymlData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result["key"] != "value" {
+		t.Fatal("parsed result does not contain expected key-value")
+	}
+}
+
+func TestYmlParserInvalid(t *testing.T) {
+	ymlData := []byte(`{key: value`)
+	_, err := ymlParser(ymlData)
+	if err == nil {
+		t.Fatal("expected error for invalid YML")
+	}
+}

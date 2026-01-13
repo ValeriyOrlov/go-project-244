@@ -3,11 +3,11 @@
 install:
 	go mod tidy
 build:
-	go build -o bin/gendiff ./cmd/gendiff
+	go build -o bin/gendiff ./cmd/main.go
 clean:
 	rm -rf bin/
 run:
-	go run cmd/gendiff/main.go
+	go run cmd/main.go
 lint:
 	golangci-lint run ./...
 test:

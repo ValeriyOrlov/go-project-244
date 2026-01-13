@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 func fileReader(path string) ([]byte, error) {
@@ -28,12 +30,28 @@ func Parser(fp string) (map[string]any, error) {
 		}
 		return res, nil
 	}
+	if strings.HasSuffix(fp, "yml") || strings.HasSuffix(fp, "yaml") {
+		res, err := ymlParser(f)
+		if err != nil {
+			return nil, fmt.Errorf("cannot read file: %w", err)
+		}
+		return res, nil
+	}
 	return nil, nil
 }
 
 func jsonParser(data []byte) (map[string]any, error) {
 	var result map[string]any
 	err := json.Unmarshal(data, &result)
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse file: %w", err)
+	}
+	return result, nil
+}
+
+func ymlParser(data []byte) (map[string]any, error) {
+	var result map[string]any
+	err := yaml.Unmarshal(data, &result)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse file: %w", err)
 	}

@@ -1,8 +1,7 @@
 package parsers
 
 import (
-	"maps"
-	"slices"
+	"reflect"
 	"testing"
 )
 
@@ -23,64 +22,113 @@ func TestFileReaderError(t *testing.T) {
 	}
 }
 
-func TestJsonParserValid(t *testing.T) {
-	jsonData := []byte(`{"key": "value"}`)
-	result, err := jsonParser(jsonData)
-	if err != nil {
-		t.Fatal(err)
+func TestJsonParser(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   []byte
+		want    map[string]any
+		wantErr bool
+	}{
+		{
+			name:  "валидный вложенный JSON",
+			input: []byte(`{"common": {"setting1": "Value 1"}}`),
+			want:  map[string]any{"common": map[string]any{"setting1": "Value 1"}},
+		},
+		{
+			name:    "некорректный JSON",
+			input:   []byte(`{"key": "value"`),
+			wantErr: true,
+		},
 	}
-	if result["key"] != "value" {
-		t.Fatal("parsed result does not contain expected key-value")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := jsonParser(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("jsonParser() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("jsonParser() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
-func TestJsonParserInvalid(t *testing.T) {
-	jsonData := []byte(`{key: value}`)
-	_, err := jsonParser(jsonData)
-	if err == nil {
-		t.Fatal("expected error for invalid JSON")
-	}
-}
+func TestYmlParser(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   []byte
+		want    map[string]any
+		wantErr bool
+	}{
 
-func TestParserJSONFile(t *testing.T) {
-	result, err := Parser("../testdata/fixtures/file1.json")
-	if err != nil {
-		t.Fatal(err)
+		{
+			name: "валидный вложенный YAML",
+			input: []byte(`
+common:
+  follow: false
+  setting1: Value 1
+  setting3: null
+  setting4: blah blah
+  setting5:
+    key5: value5
+  setting6:
+    key: value
+    ops: vops
+    doge:
+      wow: so much
+group1:
+  foo: bar
+  baz: bars
+  nest: str
+group3:
+  deep:
+    id:
+      number: 45
+  fee: 100500
+`),
+			want: map[string]any{
+				"common": map[string]any{
+					"follow":   false,
+					"setting1": "Value 1",
+					"setting3": nil,
+					"setting4": "blah blah",
+					"setting5": map[string]any{"key5": "value5"},
+					"setting6": map[string]any{"key": "value", "ops": "vops", "doge": map[string]any{"wow": "so much"}},
+				},
+				"group1": map[string]any{
+					"foo":  "bar",
+					"baz":  "bars",
+					"nest": "str",
+				},
+				"group3": map[string]any{
+					"deep": map[string]any{
+						"id": map[string]any{
+							"number": 45,
+						},
+					},
+					"fee": 100500,
+				},
+			},
+		},
+		{
+			name:    "некорректный YAML",
+			input:   []byte(`: invalid yaml`),
+			wantErr: true,
+		},
 	}
-	gotKeys := slices.Sorted(maps.Keys(result))
-	wantKeys := []string{"follow", "host", "proxy", "timeout"}
-	if !slices.Equal(gotKeys, wantKeys) {
-		t.Fatal(err)
-	}
-}
 
-func TestParserYmlFile(t *testing.T) {
-	result, err := Parser("../testdata/fixtures/file1.yaml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	gotKeys := slices.Sorted(maps.Keys(result))
-	wantKeys := []string{"follow", "host", "proxy", "timeout"}
-	if !slices.Equal(gotKeys, wantKeys) {
-		t.Fatal(err)
-	}
-}
-
-func TestYmlParserValid(t *testing.T) {
-	ymlData := []byte(`key: value`)
-	result, err := ymlParser(ymlData)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result["key"] != "value" {
-		t.Fatal("parsed result does not contain expected key-value")
-	}
-}
-
-func TestYmlParserInvalid(t *testing.T) {
-	ymlData := []byte(`{key: value`)
-	_, err := ymlParser(ymlData)
-	if err == nil {
-		t.Fatal("expected error for invalid YML")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ymlParser(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ymlParser() error =\n %v, \nwantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ymlParser() =\n %v, \nwant %v", got, tt.want)
+			}
+		})
 	}
 }

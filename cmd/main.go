@@ -1,9 +1,7 @@
 package main
 
 import (
-	"code/cmd/gendiff"
 	"code/formatters"
-	"code/parsers"
 	"context"
 	"fmt"
 	"log"
@@ -22,12 +20,14 @@ func main() {
 				Aliases: []string{"f"},
 				Usage:   `output format (default: "stylish")`,
 			},
+			&cli.BoolFlag{
+				Name:    "stylish",
+				Aliases: []string{"s"},
+				Usage:   "stylish format",
+				Value:   true,
+			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			if cmd.Bool("format") {
-				fmt.Println("test format")
-			}
-
 			if cmd.Args().Len() < 2 {
 				fmt.Println("file paths are not specified (use the -h flag for reference)")
 				return nil
@@ -35,16 +35,7 @@ func main() {
 			path1 := cmd.Args().Get(0)
 			path2 := cmd.Args().Get(1)
 
-			data1, err1 := parsers.Parser(path1)
-			if err1 != nil {
-				log.Fatal(err1)
-			}
-			data2, err2 := parsers.Parser(path2)
-			if err2 != nil {
-				log.Fatal(err2)
-			}
-			diff := gendiff.Gendiff(data1, data2)
-			result := formatters.Stylish(diff)
+			result := formatters.Formatters(path1, path2, cmd.Bool("stylish"))
 			fmt.Println(result)
 			return nil
 		},

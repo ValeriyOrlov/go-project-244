@@ -21,6 +21,12 @@ func main() {
 				Usage:   `output format (default: "stylish")`,
 			},
 			&cli.BoolFlag{
+				Name:    "plain",
+				Aliases: []string{"p"},
+				Usage:   "plain format",
+				Value:   false,
+			},
+			&cli.BoolFlag{
 				Name:    "stylish",
 				Aliases: []string{"s"},
 				Usage:   "stylish format",
@@ -35,7 +41,7 @@ func main() {
 			path1 := cmd.Args().Get(0)
 			path2 := cmd.Args().Get(1)
 
-			result := formatters.Formatters(path1, path2, cmd.Bool("stylish"))
+			result := formatters.Formatters(path1, path2, cmd.Bool("stylish"), cmd.Bool("plain"))
 			fmt.Println(result)
 			return nil
 		},

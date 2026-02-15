@@ -1,9 +1,7 @@
 package gendiff
 
 import (
-	"maps"
 	"reflect"
-	"slices"
 	"sort"
 )
 
@@ -28,23 +26,22 @@ func Gendiff(data1, data2 map[string]any) []KeyCharacteristics {
 		changed = "changed"
 	)
 	resultDiff := []KeyCharacteristics{}
-	data1Keys := slices.Sorted(maps.Keys(data1))
-	data2Keys := slices.Sorted(maps.Keys(data2))
-	allKeys := append(data1Keys, data2Keys...)
-	// Создаем карту для хранения уникальных ключей
-	uniqueMap := make(map[string]struct{})
 
-	// Проходим по всему срезу и добавляем в карту
-	for _, key := range allKeys {
-		uniqueMap[key] = struct{}{}
+	uniqueKeysMap := make(map[string]struct{}, len(data1)+len(data2))
+	for k := range data1 {
+		uniqueKeysMap[k] = struct{}{}
 	}
-	// Формируем новый срез из ключей карты
-	uniqueKeys := make([]string, 0, len(uniqueMap))
-	for key := range uniqueMap {
-		uniqueKeys = append(uniqueKeys, key)
+	for k := range data2 {
+		uniqueKeysMap[k] = struct{}{}
 	}
 
-	// Cортируем
+	// Извлекаем ключи в срез
+	uniqueKeys := make([]string, 0, len(uniqueKeysMap))
+	for k := range uniqueKeysMap {
+		uniqueKeys = append(uniqueKeys, k)
+	}
+
+	// Сортируем финальный срез
 	sort.Strings(uniqueKeys)
 
 	for _, key := range uniqueKeys {

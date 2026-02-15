@@ -23,25 +23,42 @@ func main() {
 			&cli.BoolFlag{
 				Name:    "plain",
 				Aliases: []string{"p"},
-				Usage:   "plain format",
-				Value:   false,
+				Usage:   "shortcut for --format plain",
+			},
+			&cli.BoolFlag{
+				Name:    "json",
+				Aliases: []string{"j"},
+				Usage:   "shortcut for --format json",
 			},
 			&cli.BoolFlag{
 				Name:    "stylish",
 				Aliases: []string{"s"},
-				Usage:   "stylish format",
-				Value:   true,
+				Usage:   "shortcut for --format stylish",
 			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			if cmd.Args().Len() < 2 {
-				fmt.Println("file paths are not specified (use the -h flag for reference)")
-				return nil
+				return fmt.Errorf("missing file paths")
 			}
 			path1 := cmd.Args().Get(0)
 			path2 := cmd.Args().Get(1)
 
-			result := formatters.Formatters(path1, path2, cmd.Bool("stylish"), cmd.Bool("plain"))
+			format := cmd.String("format")
+			switch {
+			case cmd.Bool("plain"):
+				format = "plain"
+			case cmd.Bool("json"):
+				format = "json"
+			case cmd.Bool("stylish"):
+				format = "stylish"
+			default:
+				format = "stylish"
+			}
+
+			result, err := formatters.Format(path1, path2, format)
+			if err != nil {
+				return fmt.Errorf("format error: %w", err)
+			}
 			fmt.Println(result)
 			return nil
 		},

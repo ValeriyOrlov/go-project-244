@@ -18,13 +18,13 @@ func normalizeValue(v any) string {
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
 		return fmt.Sprintf("%v", val)
 	default:
-		// Для составных типов (map, slice, struct) возвращаем [complex value]
 		return "[complex value]"
 	}
 }
 
 func Plain(data []gendiff.KeyCharacteristics, path []string) string {
-	result := []string{}
+	var rows []string
+
 	keyStatuses := map[string]string{
 		"added":   " was added with value: ",
 		"deleted": " was removed",
@@ -33,7 +33,6 @@ func Plain(data []gendiff.KeyCharacteristics, path []string) string {
 	propertyStr := "Property "
 
 	for i, key := range data {
-		var addedValue, removedValue any
 		var nextKey, prevKey string
 		if i > 0 {
 			prevKey = data[i-1].Name
@@ -42,23 +41,29 @@ func Plain(data []gendiff.KeyCharacteristics, path []string) string {
 			nextKey = data[i+1].Name
 		}
 
+		fullKey := strings.Join(path, "") + key.Name
+
 		switch {
 		case key.Status == "changed":
 			newPath := append(append([]string{}, path...), key.Name, ".")
-			result = append(result, Plain(key.Value.([]gendiff.KeyCharacteristics), newPath))
+			sub := Plain(key.Value.([]gendiff.KeyCharacteristics), newPath)
+			if sub != "" {
+				subRows := strings.Split(sub, "\n")
+				rows = append(rows, subRows...)
+			}
 		case key.Status == "deleted" && key.Name != nextKey:
-			result = append(result, propertyStr, fmt.Sprintf(`'%s%s'`, strings.Join(path, ""), key.Name), keyStatuses[key.Status], "\n")
-
+			row := fmt.Sprintf("%s'%s'%s", propertyStr, fullKey, keyStatuses[key.Status])
+			rows = append(rows, row)
 		case key.Status == "added" && key.Name != prevKey:
-			addedValue = normalizeValue(key.Value)
-			result = append(result, propertyStr, fmt.Sprintf(`'%s%s'`, strings.Join(path, ""), key.Name), keyStatuses[key.Status], addedValue.(string), "\n")
-
+			addedValue := normalizeValue(key.Value)
+			row := fmt.Sprintf("%s'%s'%s%s", propertyStr, fullKey, keyStatuses[key.Status], addedValue)
+			rows = append(rows, row)
 		case key.Status == "added" && key.Name == prevKey:
-			removedValue = normalizeValue(data[i-1].Value)
-			addedValue = normalizeValue(key.Value)
-			changedValues := fmt.Sprintf("From %s to %s", removedValue, addedValue)
-			result = append(result, propertyStr, fmt.Sprintf(`'%s%s'`, strings.Join(path, ""), key.Name), keyStatuses["changed"], changedValues, "\n")
+			removedValue := normalizeValue(data[i-1].Value)
+			addedValue := normalizeValue(key.Value)
+			row := fmt.Sprintf("%s'%s'%sFrom %s to %s", propertyStr, fullKey, keyStatuses["changed"], removedValue, addedValue)
+			rows = append(rows, row)
 		}
 	}
-	return strings.Join(result, "")
+	return strings.Join(rows, "\n")
 }

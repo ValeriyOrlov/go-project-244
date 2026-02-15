@@ -16,14 +16,14 @@ func TestPlain(t *testing.T) {
 			data: []gendiff.KeyCharacteristics{
 				{Name: "key1", Status: "added", Value: "value1"},
 			},
-			expected: "Property 'key1' was added with value: 'value1'\n",
+			expected: "Property 'key1' was added with value: 'value1'",
 		},
 		{
 			name: "deleted simple value",
 			data: []gendiff.KeyCharacteristics{
 				{Name: "key1", Status: "deleted", Value: "value1"},
 			},
-			expected: "Property 'key1' was removed\n",
+			expected: "Property 'key1' was removed",
 		},
 		{
 			name: "updated simple value (deleted+added pair)",
@@ -31,7 +31,7 @@ func TestPlain(t *testing.T) {
 				{Name: "key1", Status: "deleted", Value: "old"},
 				{Name: "key1", Status: "added", Value: "new"},
 			},
-			expected: "Property 'key1' was updated. From 'old' to 'new'\n",
+			expected: "Property 'key1' was updated. From 'old' to 'new'",
 		},
 		{
 			name: "updated with boolean and null",
@@ -39,7 +39,7 @@ func TestPlain(t *testing.T) {
 				{Name: "flag", Status: "deleted", Value: true},
 				{Name: "flag", Status: "added", Value: nil},
 			},
-			expected: "Property 'flag' was updated. From true to null\n",
+			expected: "Property 'flag' was updated. From true to null",
 		},
 		{
 			name: "updated with complex value",
@@ -47,7 +47,7 @@ func TestPlain(t *testing.T) {
 				{Name: "obj", Status: "deleted", Value: map[string]any{"a": 1}},
 				{Name: "obj", Status: "added", Value: "simple"},
 			},
-			expected: "Property 'obj' was updated. From [complex value] to 'simple'\n",
+			expected: "Property 'obj' was updated. From [complex value] to 'simple'",
 		},
 		{
 			name: "nested object with added property",
@@ -60,7 +60,7 @@ func TestPlain(t *testing.T) {
 					},
 				},
 			},
-			expected: "Property 'common.setting1' was added with value: 'value1'\n",
+			expected: "Property 'common.setting1' was added with value: 'value1'",
 		},
 		{
 			name: "nested object with updated property",
@@ -74,7 +74,7 @@ func TestPlain(t *testing.T) {
 					},
 				},
 			},
-			expected: "Property 'common.setting2' was updated. From 'old' to 'new'\n",
+			expected: "Property 'common.setting2' was updated. From 'old' to 'new'",
 		},
 		{
 			name: "deep nested path",
@@ -93,7 +93,7 @@ func TestPlain(t *testing.T) {
 					},
 				},
 			},
-			expected: "Property 'a.b.c' was added with value: 42\n",
+			expected: "Property 'a.b.c' was added with value: 42",
 		},
 		{
 			name: "multiple changes at root",
@@ -105,7 +105,7 @@ func TestPlain(t *testing.T) {
 			},
 			expected: "Property 'key1' was updated. From 1 to 2\n" +
 				"Property 'key2' was added with value: 'new'\n" +
-				"Property 'key3' was removed\n",
+				"Property 'key3' was removed",
 		},
 	}
 

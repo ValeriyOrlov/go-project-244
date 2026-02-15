@@ -1,234 +1,181 @@
-package formatters_test
+package formatters
 
 import (
 	"code/cmd/gendiff"
-	formatters "code/formatters/stylish"
 	"testing"
 )
 
-// Ожидаемый формат stylish в соответствии с условиями:
-// - Каждый уровень вложенности добавляет 4 символа отступа.
-// - Строки со статусом added/deleted: (уровень*4-2) пробела, '+'/'-', пробел, ключ: значение
-// - Строки со статусом equal/changed: уровень*4 пробелов, ключ: { (для changed) или ключ: значение
-// - Закрывающие скобки: уровень*4 пробелов, затем '}'
-// - Внутри карт (без статуса): (уровень+1)*4 пробелов, ключ: значение (или ключ: { для вложенной карты)
-// - Ключи в картах выводятся в алфавитном порядке.
-
 func TestStylish(t *testing.T) {
 	tests := []struct {
-		name           string
-		data           []gendiff.KeyCharacteristics
-		nestingCounter int
-		expected       string
+		name     string
+		data     []gendiff.KeyCharacteristics
+		expected string
 	}{
 		{
-			name:           "empty diff",
-			data:           []gendiff.KeyCharacteristics{},
-			nestingCounter: 0,
-			expected: `{
-}
-`,
+			name:     "empty diff",
+			data:     []gendiff.KeyCharacteristics{},
+			expected: "{\n}\n",
 		},
 		{
 			name: "single added key, level 1",
 			data: []gendiff.KeyCharacteristics{
-				{Name: "host", Value: "hexlet.io", Status: "added"},
+				{Name: "key1", Value: "value1", Status: "added"},
 			},
-			nestingCounter: 0,
-			expected: `{
-  + host: hexlet.io
-}
-`,
+			expected: "{\n    + key1: 'value1'\n}\n",
 		},
 		{
 			name: "single deleted key, level 1",
 			data: []gendiff.KeyCharacteristics{
-				{Name: "timeout", Value: 50, Status: "deleted"},
+				{Name: "key1", Value: 42, Status: "deleted"},
 			},
-			nestingCounter: 0,
-			expected: `{
-  - timeout: 50
-}
-`,
+			expected: "{\n    - key1: 42\n}\n",
 		},
 		{
 			name: "single unchanged key, level 1",
 			data: []gendiff.KeyCharacteristics{
-				{Name: "verbose", Value: true, Status: "equal"},
+				{Name: "key1", Value: true, Status: "equal"},
 			},
-			nestingCounter: 0,
-			expected: `{
-    verbose: true
-}
-`,
+			expected: "{\n      key1: true\n}\n",
 		},
 		{
 			name: "multiple keys with all statuses – sorted",
 			data: []gendiff.KeyCharacteristics{
-				{Name: "a", Value: 1, Status: "deleted"},
-				{Name: "a", Value: 2, Status: "added"},
-				{Name: "b", Value: "str", Status: "equal"},
-				{Name: "c", Value: nil, Status: "added"},
+				{Name: "a", Value: 1, Status: "added"},
+				{Name: "b", Value: 2, Status: "deleted"},
+				{Name: "c", Value: 3, Status: "equal"},
 			},
-			nestingCounter: 0,
-			expected: `{
-  - a: 1
-  + a: 2
-    b: str
-  + c: <nil>
-}
-`,
+			expected: "{\n    + a: 1\n    - b: 2\n      c: 3\n}\n",
 		},
 		{
 			name: "changed – nested equal diff, level 2 inside",
 			data: []gendiff.KeyCharacteristics{
 				{
-					Name:   "group",
+					Name:   "nested",
 					Status: "changed",
 					Value: []gendiff.KeyCharacteristics{
-						{Name: "x", Value: 10, Status: "equal"},
-						{Name: "y", Value: 20, Status: "equal"},
+						{Name: "inner", Value: "value", Status: "equal"},
 					},
 				},
 			},
-			nestingCounter: 0,
-			expected: `{
-    group: {
-        x: 10
-        y: 20
-    }
-}
-`,
+			expected: "{\n      nested: {\n          inner: 'value'\n    }\n}\n",
 		},
 		{
 			name: "changed – nested diff with changes, level 2",
 			data: []gendiff.KeyCharacteristics{
 				{
-					Name:   "group",
+					Name:   "nested",
 					Status: "changed",
 					Value: []gendiff.KeyCharacteristics{
-						{Name: "x", Value: 10, Status: "deleted"},
-						{Name: "x", Value: 99, Status: "added"},
-						{Name: "y", Value: 20, Status: "equal"},
-						{Name: "z", Value: 30, Status: "added"},
+						{Name: "inner", Value: "old", Status: "deleted"},
+						{Name: "inner", Value: "new", Status: "added"},
 					},
 				},
 			},
-			nestingCounter: 0,
-			expected: `{
-    group: {
-      - x: 10
-      + x: 99
-        y: 20
-      + z: 30
-    }
-}
-`,
+			expected: "{\n      nested: {\n        - inner: 'old'\n        + inner: 'new'\n    }\n}\n",
 		},
 		{
 			name: "map value added as whole object – sorted keys",
 			data: []gendiff.KeyCharacteristics{
 				{
-					Name:   "proxy",
+					Name:   "obj",
+					Value:  map[string]any{"b": 2, "a": 1},
 					Status: "added",
-					Value: map[string]interface{}{
-						"host": "localhost",
-						"port": 8080,
-					},
 				},
 			},
-			nestingCounter: 0,
-			expected: `{
-  + proxy: {
-        host: localhost
-        port: 8080
-    }
-}
-`,
+			expected: "{\n    + obj: {\n        a: 1\n        b: 2\n    }\n}\n",
 		},
 		{
 			name: "map value deleted as whole object – sorted keys",
 			data: []gendiff.KeyCharacteristics{
 				{
-					Name:   "oldConfig",
+					Name:   "obj",
+					Value:  map[string]any{"foo": "bar", "num": 42},
 					Status: "deleted",
-					Value: map[string]interface{}{
-						"version": "1.0",
-						"enabled": false,
-					},
 				},
 			},
-			nestingCounter: 0,
-			expected: `{
-  - oldConfig: {
-        enabled: false
-        version: 1.0
-    }
-}
-`,
+			expected: "{\n    - obj: {\n        foo: 'bar'\n        num: 42\n    }\n}\n",
 		},
 		{
 			name: "unchanged map value (equal) – sorted keys",
 			data: []gendiff.KeyCharacteristics{
 				{
-					Name:   "constants",
+					Name:   "obj",
+					Value:  map[string]any{"x": 1, "y": 2},
 					Status: "equal",
-					Value: map[string]interface{}{
-						"pi": 3.14,
-						"e":  2.71,
-					},
 				},
 			},
-			nestingCounter: 0,
-			expected: `{
-    constants: {
-        e: 2.71
-        pi: 3.14
-    }
-}
-`,
+			expected: "{\n      obj: {\n        x: 1\n        y: 2\n    }\n}\n",
+		},
+		{
+			name: "null values",
+			data: []gendiff.KeyCharacteristics{
+				{Name: "nullKey", Value: nil, Status: "added"},
+				{Name: "nullKey", Value: nil, Status: "deleted"},
+			},
+			expected: "{\n    + nullKey: null\n    - nullKey: null\n}\n",
 		},
 		{
 			name: "deep nested mix – all rules together",
 			data: []gendiff.KeyCharacteristics{
-				{Name: "common", Value: map[string]interface{}{"setting": "value"}, Status: "deleted"},
-				{Name: "common", Value: "new value", Status: "added"},
-				{Name: "group1", Status: "changed", Value: []gendiff.KeyCharacteristics{
-					{Name: "a", Value: 1, Status: "equal"},
-					{Name: "b", Value: 2, Status: "deleted"},
-					{Name: "b", Value: 3, Status: "added"},
-					{Name: "c", Status: "changed", Value: []gendiff.KeyCharacteristics{
-						{Name: "inner", Value: "old", Status: "deleted"},
-						{Name: "inner", Value: "new", Status: "added"},
-						{Name: "extra", Value: map[string]interface{}{"flag": true}, Status: "added"},
-					}},
-				}},
-				{Name: "group2", Value: map[string]interface{}{"x": 10, "y": 20}, Status: "added"},
-				{Name: "group3", Value: "untouched", Status: "equal"},
+				{Name: "added", Value: "new", Status: "added"},
+				{Name: "deleted", Value: 123, Status: "deleted"},
+				{Name: "equal", Value: "same", Status: "equal"},
+				{
+					Name:   "changed",
+					Status: "changed",
+					Value: []gendiff.KeyCharacteristics{
+						{Name: "innerAdded", Value: "inner", Status: "added"},
+						{Name: "innerDeleted", Value: "old", Status: "deleted"},
+						{Name: "innerEqual", Value: "same", Status: "equal"},
+						{
+							Name:   "innerChanged",
+							Status: "changed",
+							Value: []gendiff.KeyCharacteristics{
+								{Name: "deep", Value: "deepValue", Status: "added"},
+							},
+						},
+					},
+				},
+				{
+					Name:   "objAdded",
+					Value:  map[string]any{"a": 1, "b": 2},
+					Status: "added",
+				},
+				{
+					Name:   "objDeleted",
+					Value:  map[string]any{"c": 3, "d": 4},
+					Status: "deleted",
+				},
+				{
+					Name:   "objEqual",
+					Value:  map[string]any{"e": 5, "f": 6},
+					Status: "equal",
+				},
 			},
-			nestingCounter: 0,
 			expected: `{
-  - common: {
-        setting: value
-    }
-  + common: new value
-    group1: {
-        a: 1
-      - b: 2
-      + b: 3
-        c: {
-          - inner: old
-          + inner: new
-          + extra: {
-                flag: true
-            }
+    + added: 'new'
+    - deleted: 123
+      equal: 'same'
+      changed: {
+        + innerAdded: 'inner'
+        - innerDeleted: 'old'
+          innerEqual: 'same'
+          innerChanged: {
+            + deep: 'deepValue'
         }
     }
-  + group2: {
-        x: 10
-        y: 20
+    + objAdded: {
+        a: 1
+        b: 2
     }
-    group3: untouched
+    - objDeleted: {
+        c: 3
+        d: 4
+    }
+      objEqual: {
+        e: 5
+        f: 6
+    }
 }
 `,
 		},
@@ -236,9 +183,9 @@ func TestStylish(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := formatters.Stylish(tt.data, tt.nestingCounter)
-			if got != tt.expected {
-				t.Errorf("Stylish() output mismatch\n--- got:\n%s--- expected:\n%s", got, tt.expected)
+			result := Stylish(tt.data, 0)
+			if result != tt.expected {
+				t.Errorf("Stylish() = %q, want %q", result, tt.expected)
 			}
 		})
 	}

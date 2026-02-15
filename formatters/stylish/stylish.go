@@ -8,66 +8,82 @@ import (
 	"strings"
 )
 
-// функция для отрисовки отступов
-func marginsCreator(nestingCounter int) string {
-	margin := []string{}
-	for i := 0; i < nestingCounter; i++ {
-		margin = append(margin, "  ")
+// indent возвращает отступ из level * 4 пробелов
+func indent(level int) string {
+	return strings.Repeat("    ", level)
+}
+
+// stringify преобразует значение в строку, заменяя nil на "null", а строки оборачивает в кавычки
+func stringify(v any) string {
+	if v == nil {
+		return "null"
 	}
-	return strings.Join(margin, "")
+	switch val := v.(type) {
+	case string:
+		return fmt.Sprintf("'%s'", val)
+	default:
+		return fmt.Sprintf("%v", val)
+	}
 }
 
-// функции для отрисовки плоских строк и строк с вложенными значениями
-func plainRowCreator(margin, status, key string, value any) string {
-	return fmt.Sprintf("%s%s %s: %v\n", margin, status, key, value)
-}
-
-func nestedRowCreator(margin, status, key string, value any) string {
-	return fmt.Sprintf("%s%s %s: %v", margin, status, key, value)
-}
-
-// функция для отрисовки карт
-func mapPrint(row map[string]any, nestingCounter int) string {
-	var result strings.Builder
-	rowKeys := slices.Sorted(maps.Keys(row))
-	nestingCounter += 1
-	result.WriteString("{\n")
-
-	for _, key := range rowKeys {
-		if gendiff.IsMap(row[key]) {
-			newRow := nestedRowCreator(marginsCreator(nestingCounter+1), " ", key, mapPrint(row[key].(map[string]any), nestingCounter))
-			result.WriteString(newRow)
+// renderObject форматирует map как многострочный объект с отступами
+func renderObject(obj map[string]any, level int) string {
+	if len(obj) == 0 {
+		return "{}"
+	}
+	var builder strings.Builder
+	builder.WriteString("{\n")
+	keys := slices.Sorted(maps.Keys(obj))
+	for _, k := range keys {
+		v := obj[k]
+		builder.WriteString(indent(level + 1))
+		if gendiff.IsMap(v) {
+			builder.WriteString(fmt.Sprintf("%s: %s", k, renderObject(v.(map[string]any), level+1)))
 		} else {
-			newRow := plainRowCreator(marginsCreator(nestingCounter+1), " ", key, row[key])
-			result.WriteString(newRow)
+			builder.WriteString(fmt.Sprintf("%s: %s", k, stringify(v)))
+		}
+		builder.WriteString("\n")
+	}
+	builder.WriteString(indent(level) + "}")
+	return builder.String()
+}
+
+// Stylish возвращает отформатированный diff в стиле stylish
+func Stylish(data []gendiff.KeyCharacteristics, level int) string {
+	statusSign := map[string]string{
+		"added":   "+",
+		"deleted": "-",
+		"equal":   " ",
+		"changed": " ",
+	}
+
+	var body strings.Builder
+
+	for _, item := range data {
+		sign := statusSign[item.Status]
+		body.WriteString(indent(level + 1))
+
+		switch item.Status {
+		case "changed":
+			// Вложенные изменения
+			body.WriteString(fmt.Sprintf("  %s: ", item.Name))
+			// Рекурсивно получаем форматирование вложенного diff
+			nested := Stylish(item.Value.([]gendiff.KeyCharacteristics), level+1)
+			body.WriteString(nested)
+		default:
+			if gendiff.IsMap(item.Value) {
+				body.WriteString(fmt.Sprintf("%s %s: %s", sign, item.Name, renderObject(item.Value.(map[string]any), level+1)))
+			} else {
+				body.WriteString(fmt.Sprintf("%s %s: %s", sign, item.Name, stringify(item.Value)))
+			}
+			body.WriteString("\n")
 		}
 	}
-	result.WriteString(marginsCreator(nestingCounter) + "}\n")
 
-	return result.String()
-}
-
-func Stylish(data []gendiff.KeyCharacteristics, nestingCounter int) string {
-	var result strings.Builder
-
-	nestingCounter += 1
+	// Оборачиваем тело в фигурные скобки с правильными отступами
+	result := strings.Builder{}
 	result.WriteString("{\n")
-	//карта с символами статусов
-	keyStatuses := map[string]string{"added": "+", "deleted": "-", "equal": " ", "changed": " "}
-	for _, key := range data {
-		if key.Status == "changed" {
-			row := nestedRowCreator(marginsCreator(nestingCounter), keyStatuses[key.Status], key.Name, "")
-			result.WriteString(row)
-			result.WriteString(Stylish(key.Value.([]gendiff.KeyCharacteristics), nestingCounter+1))
-		} else if gendiff.IsMap(key.Value) {
-			row := nestedRowCreator(marginsCreator(nestingCounter), keyStatuses[key.Status], key.Name, mapPrint(key.Value.(map[string]any), nestingCounter))
-			result.WriteString(row)
-		} else {
-			row := plainRowCreator(marginsCreator(nestingCounter), keyStatuses[key.Status], key.Name, key.Value)
-			result.WriteString(row)
-		}
-	}
-	result.WriteString(marginsCreator(nestingCounter-1) + "}\n")
-
+	result.WriteString(body.String())
+	result.WriteString(indent(level) + "}\n")
 	return result.String()
 }

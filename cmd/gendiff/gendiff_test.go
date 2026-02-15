@@ -1,91 +1,203 @@
-package gendiff
+package gendiff_test
 
 import (
+	"code/cmd/gendiff"
 	"reflect"
 	"testing"
 )
 
-func TestGendiff(t *testing.T) {
+func TestIsMap(t *testing.T) {
 	tests := []struct {
-		name     string
-		data1    map[string]any
-		data2    map[string]any
-		expected map[string]KeyCharacteristics
+		name string
+		v    interface{}
+		want bool
+	}{
+		{"nil", nil, false},
+		{"int", 42, false},
+		{"string", "str", false},
+		{"slice", []int{1, 2}, false},
+		{"map[string]int", map[string]int{"a": 1}, true},
+		{"map[int]string", map[int]string{1: "a"}, true},
+		{"map[string]interface{}", map[string]interface{}{"a": 1}, true},
+		{"struct", struct{}{}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := gendiff.IsMap(tt.v); got != tt.want {
+				t.Errorf("IsMap(%v) = %v, want %v", tt.v, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGendiff(t *testing.T) {
+	// Вспомогательные функции для создания ожидаемых структур
+	eq := func(name string, val interface{}) gendiff.KeyCharacteristics {
+		return gendiff.KeyCharacteristics{Name: name, Value: val, Status: "equal"}
+	}
+	del := func(name string, val interface{}) gendiff.KeyCharacteristics {
+		return gendiff.KeyCharacteristics{Name: name, Value: val, Status: "deleted"}
+	}
+	add := func(name string, val interface{}) gendiff.KeyCharacteristics {
+		return gendiff.KeyCharacteristics{Name: name, Value: val, Status: "added"}
+	}
+	chg := func(name string, children []gendiff.KeyCharacteristics) gendiff.KeyCharacteristics {
+		return gendiff.KeyCharacteristics{Name: name, Value: children, Status: "changed"}
+	}
+
+	tests := []struct {
+		name   string
+		data1  map[string]interface{}
+		data2  map[string]interface{}
+		expect []gendiff.KeyCharacteristics
 	}{
 		{
-			name:  "одинаковые карты",
-			data1: map[string]any{"key1": "value1", "key2": 2},
-			data2: map[string]any{"key1": "value1", "key2": 2},
-			expected: map[string]KeyCharacteristics{
-				"key1": {Key: "key1", HasDiff: false, Status: "equal", Value: "value1"},
-				"key2": {Key: "key2", HasDiff: false, Status: "equal", Value: 2},
+			name:   "both empty",
+			data1:  map[string]interface{}{},
+			data2:  map[string]interface{}{},
+			expect: []gendiff.KeyCharacteristics{},
+		},
+		{
+			name:   "first empty, second has key",
+			data1:  map[string]interface{}{},
+			data2:  map[string]interface{}{"a": 1},
+			expect: []gendiff.KeyCharacteristics{add("a", 1)},
+		},
+		{
+			name:   "first has key, second empty",
+			data1:  map[string]interface{}{"a": 1},
+			data2:  map[string]interface{}{},
+			expect: []gendiff.KeyCharacteristics{del("a", 1)},
+		},
+		{
+			name:  "identical keys and values",
+			data1: map[string]interface{}{"a": 1, "b": "str", "c": true},
+			data2: map[string]interface{}{"a": 1, "b": "str", "c": true},
+			expect: []gendiff.KeyCharacteristics{
+				eq("a", 1),
+				eq("b", "str"),
+				eq("c", true),
 			},
 		},
 		{
-			name:  "разные значения",
-			data1: map[string]any{"key1": "value1"},
-			data2: map[string]any{"key1": "value2"},
-			expected: map[string]KeyCharacteristics{
-				"key1": {
-					Key:            "key1",
-					HasDiff:        false,
-					IsValueChanged: true,
-					Status:         "changed",
-					Value: []KeyCharacteristics{
-						{Key: "key1", HasDiff: false, Status: "deleted", Value: "value1"},
-						{Key: "key1", HasDiff: false, Status: "added", Value: "value2"},
+			name:  "added and deleted keys",
+			data1: map[string]interface{}{"a": 1, "b": 2},
+			data2: map[string]interface{}{"b": 2, "c": 3},
+			expect: []gendiff.KeyCharacteristics{
+				del("a", 1),
+				eq("b", 2),
+				add("c", 3),
+			},
+		},
+		{
+			name:  "changed simple value",
+			data1: map[string]interface{}{"a": 1},
+			data2: map[string]interface{}{"a": 2},
+			expect: []gendiff.KeyCharacteristics{
+				del("a", 1),
+				add("a", 2),
+			},
+		},
+		{
+			name:  "mixed simple changes and equal",
+			data1: map[string]interface{}{"a": 1, "b": 2, "d": 4},
+			data2: map[string]interface{}{"a": 1, "b": 3, "c": 5},
+			expect: []gendiff.KeyCharacteristics{
+				eq("a", 1),
+				del("b", 2),
+				add("b", 3),
+				add("c", 5),
+				del("d", 4),
+			},
+		},
+		{
+			name: "nested maps – both maps, equal",
+			data1: map[string]interface{}{
+				"nested": map[string]interface{}{"x": 10, "y": 20},
+			},
+			data2: map[string]interface{}{
+				"nested": map[string]interface{}{"x": 10, "y": 20},
+			},
+			expect: []gendiff.KeyCharacteristics{
+				chg("nested", []gendiff.KeyCharacteristics{
+					eq("x", 10),
+					eq("y", 20),
+				}),
+			},
+		},
+		{
+			name: "nested maps – both maps, inner changed",
+			data1: map[string]interface{}{
+				"nested": map[string]interface{}{"x": 10, "y": 20},
+			},
+			data2: map[string]interface{}{
+				"nested": map[string]interface{}{"x": 99, "y": 20},
+			},
+			expect: []gendiff.KeyCharacteristics{
+				chg("nested", []gendiff.KeyCharacteristics{
+					del("x", 10),
+					add("x", 99),
+					eq("y", 20),
+				}),
+			},
+		},
+		{
+			name: "nested maps – one map, other not a map",
+			data1: map[string]interface{}{
+				"nested": map[string]interface{}{"a": 1},
+			},
+			data2: map[string]interface{}{
+				"nested": 42,
+			},
+			expect: []gendiff.KeyCharacteristics{
+				del("nested", map[string]interface{}{"a": 1}),
+				add("nested", 42),
+			},
+		},
+		{
+			name: "deep nested mixed",
+			data1: map[string]interface{}{
+				"a": 1,
+				"b": map[string]interface{}{
+					"c": 3,
+					"d": map[string]interface{}{
+						"e": 5,
 					},
 				},
 			},
-		},
-		{
-			name:  "вложенные карты",
-			data1: map[string]any{"nested": map[string]any{"inner": 1}},
-			data2: map[string]any{"nested": map[string]any{"inner": 2}},
-			expected: map[string]KeyCharacteristics{
-				"nested": {
-					Key:            "nested",
-					HasDiff:        true,
-					IsValueChanged: false,
-					Status:         "diff",
-					Value: map[string]KeyCharacteristics{
-						"inner": {
-							Key:            "inner",
-							HasDiff:        false,
-							IsValueChanged: true,
-							Status:         "changed",
-							Value: []KeyCharacteristics{
-								{Key: "inner", HasDiff: false, Status: "deleted", Value: 1},
-								{Key: "inner", HasDiff: false, Status: "added", Value: 2},
-							},
-						},
+			data2: map[string]interface{}{
+				"a": 1,
+				"b": map[string]interface{}{
+					"c": 3,
+					"d": map[string]interface{}{
+						"e": 6,
+						"f": 7,
 					},
+					"g": 8,
 				},
+				"h": 9,
 			},
-		},
-		{
-			name:  "ключ только в data1",
-			data1: map[string]any{"onlyInFirst": 123},
-			data2: map[string]any{},
-			expected: map[string]KeyCharacteristics{
-				"onlyInFirst": {Key: "onlyInFirst", HasDiff: false, Status: "deleted", Value: 123},
-			},
-		},
-		{
-			name:  "ключ только в data2",
-			data1: map[string]any{},
-			data2: map[string]any{"onlyInSecond": true},
-			expected: map[string]KeyCharacteristics{
-				"onlyInSecond": {Key: "onlyInSecond", HasDiff: false, Status: "added", Value: true},
+			expect: []gendiff.KeyCharacteristics{
+				eq("a", 1),
+				chg("b", []gendiff.KeyCharacteristics{
+					eq("c", 3),
+					chg("d", []gendiff.KeyCharacteristics{
+						del("e", 5),
+						add("e", 6),
+						add("f", 7),
+					}),
+					add("g", 8),
+				}),
+				add("h", 9),
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := Gendiff(tt.data1, tt.data2)
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("Unexpected result for %s. Got\n %+v, want\n %+v", tt.name, result, tt.expected)
+			got := gendiff.Gendiff(tt.data1, tt.data2)
+			if !reflect.DeepEqual(got, tt.expect) {
+				t.Errorf("Gendiff() = %v, want %v", got, tt.expect)
 			}
 		})
 	}

@@ -40,7 +40,6 @@ func mapPrint(row map[string]any, nestingCounter int) string {
 	rowKeys := slices.Sorted(maps.Keys(row))
 	nestingCounter += 1
 	result.WriteString("{\n")
-
 	for _, key := range rowKeys {
 		if gendiff.IsMap(row[key]) {
 			newRow := nestedRowCreator(marginsCreator(nestingCounter+1), " ", key, mapPrint(row[key].(map[string]any), nestingCounter+1))
@@ -65,6 +64,7 @@ func Stylish(data []gendiff.KeyCharacteristics, nestingCounter int) string {
 			row := nestedRowCreator(marginsCreator(nestingCounter), keyStatuses[key.Status], key.Name, "")
 			result.WriteString(row)
 			result.WriteString(Stylish(key.Value.([]gendiff.KeyCharacteristics), nestingCounter+1))
+			result.WriteString("\n")
 		} else if gendiff.IsMap(key.Value) {
 			row := nestedRowCreator(marginsCreator(nestingCounter), keyStatuses[key.Status], key.Name, mapPrint(key.Value.(map[string]any), nestingCounter))
 			result.WriteString(row)
@@ -73,6 +73,7 @@ func Stylish(data []gendiff.KeyCharacteristics, nestingCounter int) string {
 			result.WriteString(row)
 		}
 	}
-	result.WriteString(marginsCreator(nestingCounter-1) + "}\n")
+	result.WriteString(marginsCreator(nestingCounter-1) + "}")
+
 	return result.String()
 }

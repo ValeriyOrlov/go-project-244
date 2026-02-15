@@ -43,7 +43,7 @@ func main() {
 			path1 := cmd.Args().Get(0)
 			path2 := cmd.Args().Get(1)
 
-			format := cmd.String("format")
+			var format string
 			switch {
 			case cmd.Bool("plain"):
 				format = "plain"

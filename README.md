@@ -3,4 +3,4 @@
 
 [![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=ValeriyOrlov_go-project-244)](https://sonarcloud.io/summary/new_code?id=ValeriyOrlov_go-project-244)
 
-[Example](https://asciinema.org/a/Bk40FbPqn0nsgZclGCXU3VWcl)
+[Example](https://asciinema.org/a/neOUQX1kVOCTIQ3J)

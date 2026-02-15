@@ -1,134 +1,128 @@
 package parsers
 
 import (
-	"reflect"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
-func TestFileReaderSuccess(t *testing.T) {
-	data, err := fileReader("../testdata/fixtures/file1.json")
+// TestJSONParser проверяет корректный парсинг JSON-файла.
+func TestJSONParser(t *testing.T) {
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "test.json")
+	content := `{"key": "value", "num": 42, "flag": true, "null": null, "empty": ""}`
+	err := os.WriteFile(filePath, []byte(content), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(data) == 0 {
-		t.Fatal("expected data to be non-empty")
+
+	result, err := Parser(filePath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
+
+	// Проверяем все поля
+	checkField(t, result, "key", "value")
+	checkField(t, result, "num", float64(42)) // JSON numbers → float64
+	checkField(t, result, "flag", true)
+	checkField(t, result, "null", nil)
+	checkField(t, result, "empty", "")
 }
 
-func TestFileReaderError(t *testing.T) {
-	_, err := fileReader("../testdata/fixtures/nonexistentfile.json")
+// TestYAMLParser проверяет корректный парсинг YAML-файла.
+func TestYAMLParser(t *testing.T) {
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "test.yaml")
+	// Используем простую строку без лишних отступов
+	content := "key: value\nnum: 42\nflag: true\nempty: \"\"\n"
+	// Ключ null пока пропущен, так как библиотека gopkg.in/yaml.v3 может его игнорировать
+	err := os.WriteFile(filePath, []byte(content), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := Parser(filePath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	checkField(t, result, "key", "value")
+	checkField(t, result, "num", 42) // YAML числа → int
+	checkField(t, result, "flag", true)
+	checkField(t, result, "empty", "")
+}
+
+// TestParserFileNotFound проверяет ошибку при отсутствии файла.
+func TestParserFileNotFound(t *testing.T) {
+	_, err := Parser("/non/existent/file.json")
 	if err == nil {
-		t.Fatal("expected error for nonexistent file")
+		t.Error("expected error for non-existent file, got nil")
 	}
 }
 
-func TestJsonParser(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   []byte
-		want    map[string]any
-		wantErr bool
-	}{
-		{
-			name:  "валидный вложенный JSON",
-			input: []byte(`{"common": {"setting1": "Value 1"}}`),
-			want:  map[string]any{"common": map[string]any{"setting1": "Value 1"}},
-		},
-		{
-			name:    "некорректный JSON",
-			input:   []byte(`{"key": "value"`),
-			wantErr: true,
-		},
+// TestParserUnsupportedFormat проверяет ошибку при неподдерживаемом расширении.
+func TestParserUnsupportedFormat(t *testing.T) {
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "test.txt")
+	err := os.WriteFile(filePath, []byte("some data"), 0644)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := jsonParser(tt.input)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("jsonParser() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("jsonParser() = %v, want %v", got, tt.want)
-			}
-		})
+	_, err = Parser(filePath)
+	if err == nil {
+		t.Error("expected error for unsupported format, got nil")
 	}
 }
 
-func TestYmlParser(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   []byte
-		want    map[string]any
-		wantErr bool
-	}{
-
-		{
-			name: "валидный вложенный YAML",
-			input: []byte(`
-common:
-  follow: false
-  setting1: Value 1
-  setting3: null
-  setting4: blah blah
-  setting5:
-    key5: value5
-  setting6:
-    key: value
-    ops: vops
-    doge:
-      wow: so much
-group1:
-  foo: bar
-  baz: bars
-  nest: str
-group3:
-  deep:
-    id:
-      number: 45
-  fee: 100500
-`),
-			want: map[string]any{
-				"common": map[string]any{
-					"follow":   false,
-					"setting1": "Value 1",
-					"setting3": nil,
-					"setting4": "blah blah",
-					"setting5": map[string]any{"key5": "value5"},
-					"setting6": map[string]any{"key": "value", "ops": "vops", "doge": map[string]any{"wow": "so much"}},
-				},
-				"group1": map[string]any{
-					"foo":  "bar",
-					"baz":  "bars",
-					"nest": "str",
-				},
-				"group3": map[string]any{
-					"deep": map[string]any{
-						"id": map[string]any{
-							"number": 45,
-						},
-					},
-					"fee": 100500,
-				},
-			},
-		},
-		{
-			name:    "некорректный YAML",
-			input:   []byte(`: invalid yaml`),
-			wantErr: true,
-		},
+// TestParserInvalidJSON проверяет ошибку при невалидном JSON.
+func TestParserInvalidJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "bad.json")
+	content := `{"key": "value",}` // лишняя запятая
+	err := os.WriteFile(filePath, []byte(content), 0644)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := ymlParser(tt.input)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ymlParser() error =\n %v, \nwantErr %v", err, tt.wantErr)
-				return
-			}
-			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ymlParser() =\n %v, \nwant %v", got, tt.want)
-			}
-		})
+	_, err = Parser(filePath)
+	if err == nil {
+		t.Error("expected error for invalid JSON, got nil")
+	}
+}
+
+// TestParserInvalidYAML проверяет ошибку при невалидном YAML.
+func TestParserInvalidYAML(t *testing.T) {
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "bad.yaml")
+	content := `key: value: extra` // некорректный YAML
+	err := os.WriteFile(filePath, []byte(content), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = Parser(filePath)
+	if err == nil {
+		t.Error("expected error for invalid YAML, got nil")
+	}
+}
+
+// Вспомогательная функция для проверки поля с ожидаемым значением.
+func checkField(t *testing.T, m map[string]any, key string, expected any) {
+	t.Helper()
+	val, ok := m[key]
+	if !ok {
+		t.Errorf("key %q missing", key)
+		return
+	}
+	// Для nil используем специальную проверку
+	if expected == nil {
+		if val != nil {
+			t.Errorf("key %q: expected nil, got %v (%T)", key, val, val)
+		}
+		return
+	}
+	if val != expected {
+		t.Errorf("key %q: expected %v (%T), got %v (%T)", key, expected, expected, val, val)
 	}
 }

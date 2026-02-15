@@ -3,60 +3,42 @@ package parsers
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
-var errReadFile = "cannot read file: %w"
-var errParseFile = "cannot parse file: %w"
-
-func fileReader(path string) ([]byte, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf(errReadFile, err)
-	}
-	return data, nil
-}
-
 func Parser(fp string) (map[string]any, error) {
-	f, err := fileReader(fp)
+	data, err := os.ReadFile(fp)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("cannot read file %s: %w", fp, err)
 	}
-	if strings.HasSuffix(fp, "json") {
-		res, err := jsonParser(f)
-		if err != nil {
-			return nil, fmt.Errorf(errReadFile, err)
-		}
-		return res, nil
+
+	switch {
+	case strings.HasSuffix(fp, ".json"):
+		return parseJSON(data)
+	case strings.HasSuffix(fp, ".yml"), strings.HasSuffix(fp, ".yaml"):
+		return parseYAML(data)
+	default:
+		return nil, fmt.Errorf("unsupported file format: %s", fp)
 	}
-	if strings.HasSuffix(fp, "yml") || strings.HasSuffix(fp, "yaml") {
-		res, err := ymlParser(f)
-		if err != nil {
-			return nil, fmt.Errorf(errReadFile, err)
-		}
-		return res, nil
-	}
-	return nil, nil
 }
 
-func jsonParser(data []byte) (map[string]any, error) {
+func parseJSON(data []byte) (map[string]any, error) {
 	var result map[string]any
 	err := json.Unmarshal(data, &result)
 	if err != nil {
-		return nil, fmt.Errorf(errParseFile, err)
+		return nil, fmt.Errorf("cannot parse JSON: %w", err)
 	}
 	return result, nil
 }
 
-func ymlParser(data []byte) (map[string]any, error) {
+func parseYAML(data []byte) (map[string]any, error) {
 	var result map[string]any
 	err := yaml.Unmarshal(data, &result)
 	if err != nil {
-		return nil, fmt.Errorf(errParseFile, err)
+		return nil, fmt.Errorf("cannot parse YAML: %w", err)
 	}
 	return result, nil
 }
